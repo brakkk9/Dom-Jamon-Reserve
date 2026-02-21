@@ -1,5 +1,5 @@
 /* ============================================================
-   Dom Jamon — Preorder WebApp  ·  app.js
+   Dom Jamon — Preorder WebApp · app.js
    ============================================================ */
 
 // ---------------------------------------------------------------------------
@@ -10,20 +10,20 @@ const tg = window.Telegram?.WebApp ?? {
   ready:    () => {},
   expand:   () => {},
   sendData: (data) => console.log('[tg.sendData]', JSON.parse(data)),
-  close:    () => {
-    // Preview fallback: show a full-screen confirmation instead of closing
+  close: () => {
     document.body.innerHTML = `
       <div style="
         height:100dvh; display:flex; flex-direction:column;
         align-items:center; justify-content:center; gap:16px;
-        background:#0e0a07; color:#c9a96e;
-        font-family:'DM Sans',sans-serif; text-align:center; padding:32px;
+        background:#0e0a07; color:#c9a96e; padding:32px;
+        font-family:'DM Sans',sans-serif; text-align:center;
       ">
-        <div style="font-family:'Cormorant Garamond',serif; font-size:28px; font-style:italic;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-style:italic;">
           Дякуємо!
         </div>
-        <div style="font-size:14px; color:#7a6e63; line-height:1.6;">
-          У реальному Telegram WebApp<br>застосунок закривається тут<br>і бот продовжує розмову.
+        <div style="font-size:13px;color:#7a6e63;line-height:1.7;">
+          У реальному Telegram WebApp застосунок<br>
+          закривається тут і бот продовжує розмову.
         </div>
       </div>`;
   },
@@ -38,8 +38,8 @@ tg.expand();
 
 const STORAGE_KEY = 'domjamon_cart_v1';
 
-// key = "<itemId>" for plain items, "<itemId>:<optionLabel>" for options
-// value = { name, option, price, qty, itemId }
+// cart[key] = { name, option, price, qty, itemId }
+// key = "<itemId>" for plain items, "<itemId>:<optionLabel>" for items with options
 const cart = {};
 
 let popupItemId         = null;
@@ -165,7 +165,7 @@ function switchCategory(id) {
     if (visible) {
       blk.querySelectorAll('.item-card').forEach((card, i) => {
         card.style.animation      = 'none';
-        card.offsetHeight;                      // force reflow
+        card.offsetHeight;
         card.style.animation      = '';
         card.style.animationDelay = (i * 40) + 'ms';
       });
@@ -210,7 +210,7 @@ function openItemPopup(id) {
   document.getElementById('popup-body').innerHTML = `
     <div class="popup-name">${item.name}</div>
     <div class="popup-price" id="popup-price">
-      ${(popupSelectedOption?.price ?? item.price)} ₴
+      ${popupSelectedOption?.price ?? item.price} ₴
     </div>
     <div class="popup-desc">${item.desc}</div>
     ${optionsHTML}
@@ -443,7 +443,7 @@ function updateBar() {
 }
 
 // ---------------------------------------------------------------------------
-// Confirm & skip — send data then always close
+// Confirm & skip
 // ---------------------------------------------------------------------------
 
 function confirmOrder() {
@@ -457,7 +457,6 @@ function confirmOrder() {
   });
 
   try { tg.sendData(payload); } catch (_) {}
-
   try { tg.CloudStorage.removeItem(STORAGE_KEY, () => {}); } catch (_) {}
   try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
 
@@ -523,7 +522,7 @@ function plural(n, one, few, many) {
 }
 
 // ---------------------------------------------------------------------------
-// Boot
+// Boot — fetch menu.json then restore cart
 // ---------------------------------------------------------------------------
 
 fetch('./menu.json')
@@ -532,13 +531,18 @@ fetch('./menu.json')
     window.MENU = data;
     await loadCart();
     buildUI(MENU);
-    MENU.categories.forEach(cat => cat.items.forEach(item => renderCardCtrl(item.id)));
+    MENU.categories.forEach(cat =>
+      cat.items.forEach(item => renderCardCtrl(item.id)),
+    );
     updateBar();
   })
   .catch(err => {
     document.getElementById('scroll-area').innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-        height:55vh;gap:12px;color:var(--smoke);font-size:13px;text-align:center;padding:24px;">
+      <div style="
+        display:flex; flex-direction:column; align-items:center;
+        justify-content:center; height:55vh; gap:12px;
+        color:var(--smoke); font-size:13px; text-align:center; padding:24px;
+      ">
         <div style="font-family:var(--serif);font-size:20px;font-style:italic;color:var(--ink);">
           Меню недоступне
         </div>

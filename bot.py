@@ -30,9 +30,9 @@ from telegram.ext import (
 # Config
 # ---------------------------------------------------------------------------
 
-TOKEN              = os.environ.get("BOT_TOKEN", "8502174576:AAEYcRBjYvGkvd61cXolURx2XlRsmtd9pTg")
-PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://dom-jamon-reserve.vercel.app/preorder")
-PREORDERS_FILE     = Path("preorders.json")
+TOKEN               = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://your-vercel-app.vercel.app")
+PREORDERS_FILE      = Path("preorders.json")
 
 logging.basicConfig(
     format="%(asctime)s  %(levelname)s  %(name)s — %(message)s",
@@ -53,13 +53,13 @@ NAME, GUESTS, DATE, TIME, PREORDER, COMMENT, CONFIRM = range(7)
 def save_reservation(data: dict) -> None:
     """Append a completed reservation to preorders.json."""
     record = {
-        "saved_at":  datetime.now().isoformat(timespec="seconds"),
-        "name":      data.get("name"),
-        "guests":    data.get("guests"),
-        "date":      data.get("date"),
-        "time":      data.get("time"),
-        "preorder":  data.get("preorder_items"),
-        "comment":   data.get("comment"),
+        "saved_at": datetime.now().isoformat(timespec="seconds"),
+        "name":     data.get("name"),
+        "guests":   data.get("guests"),
+        "date":     data.get("date"),
+        "time":     data.get("time"),
+        "preorder": data.get("preorder_items"),
+        "comment":  data.get("comment"),
     }
 
     records = []
@@ -128,18 +128,18 @@ def confirm_keyboard() -> InlineKeyboardMarkup:
 # ---------------------------------------------------------------------------
 
 def summary(data: dict) -> str:
-    comment  = data.get("comment") or "—"
-    items    = data.get("preorder_items")
+    comment = data.get("comment") or "—"
+    items   = data.get("preorder_items")
 
     if items:
-        preorder_lines = "\n".join(
+        lines        = "\n".join(
             f"  • {i['name']}"
             + (f" ({i['option']})" if i.get("option") else "")
             + f" ×{i['qty']}  —  {i['price'] * i['qty']} ₴"
             for i in items
         )
-        total         = sum(i["price"] * i["qty"] for i in items)
-        preorder_str  = f"\n{preorder_lines}\n  Разом: {total} ₴"
+        total        = sum(i["price"] * i["qty"] for i in items)
+        preorder_str = f"\n{lines}\n  Разом: {total} ₴"
     else:
         preorder_str = "—"
 
@@ -153,11 +153,11 @@ def summary(data: dict) -> str:
     )
 
 
-async def send(context: ContextTypes.DEFAULT_TYPE, chat_id: int, **kwargs) -> None:
+async def send(context, chat_id: int, **kwargs) -> None:
     await context.bot.send_message(chat_id=chat_id, **kwargs)
 
 # ---------------------------------------------------------------------------
-# Handlers — reservation flow
+# Conversation handlers
 # ---------------------------------------------------------------------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -177,8 +177,7 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup(
             [["1", "2", "3", "4"], ["5", "6", "7", "8+"]],
-            one_time_keyboard=True,
-            resize_keyboard=True,
+            one_time_keyboard=True, resize_keyboard=True,
         ),
     )
     return GUESTS
@@ -206,8 +205,7 @@ async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 ["18:00", "19:00", "20:00"],
                 ["21:00", "22:00"],
             ],
-            one_time_keyboard=True,
-            resize_keyboard=True,
+            one_time_keyboard=True, resize_keyboard=True,
         ),
     )
     return TIME
@@ -216,15 +214,16 @@ async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["time"] = update.message.text.strip()
     await update.message.reply_text(
-        "Бажаєте *передзамовити страви* заздалегідь?\n\nНатисніть кнопку нижче щоб відкрити меню, або пропустіть цей крок.",
+        "Бажаєте *передзамовити страви* заздалегідь?\n\n"
+        "Натисніть кнопку нижче щоб відкрити меню, або пропустіть цей крок.",
         parse_mode="Markdown",
         reply_markup=preorder_keyboard(),
     )
     return PREORDER
 
 
-# WebApp sends data automatically when tg.sendData() is called
 async def preorder_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Called when the WebApp closes via tg.sendData()."""
     raw = update.effective_message.web_app_data.data
     try:
         payload = json.loads(raw)
@@ -250,8 +249,7 @@ async def preorder_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 async def ask_comment(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send(
-        context,
-        chat_id,
+        context, chat_id,
         text=(
             "Бажаєте залишити *коментар* до резервації?\n\n"
             "_(наприклад: алергія, побажання щодо столика, привід тощо)_\n\n"
@@ -259,9 +257,7 @@ async def ask_comment(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
         ),
         parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup(
-            [["Без коментаря"]],
-            one_time_keyboard=True,
-            resize_keyboard=True,
+            [["Без коментаря"]], one_time_keyboard=True, resize_keyboard=True,
         ),
     )
 
@@ -270,14 +266,15 @@ async def get_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     text = update.message.text.strip()
     context.user_data["comment"] = None if text == "Без коментаря" else text
     await update.message.reply_text(
-        f"*Перевірте вашу резервацію:*\n\n{summary(context.user_data)}\nВсе вірно, або бажаєте щось змінити?",
+        f"*Перевірте вашу резервацію:*\n\n{summary(context.user_data)}\n"
+        "Все вірно, або бажаєте щось змінити?",
         parse_mode="Markdown",
         reply_markup=confirm_keyboard(),
     )
     return CONFIRM
 
 # ---------------------------------------------------------------------------
-# Confirm / edit callback
+# Confirm / edit
 # ---------------------------------------------------------------------------
 
 async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -294,7 +291,6 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         )
         return ConversationHandler.END
 
-    # Edit branch — remove inline buttons first
     await query.edit_message_reply_markup(reply_markup=None)
     chat_id = query.message.chat_id
 
@@ -337,8 +333,7 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return PREORDER
 
     if query.data == "edit_comment":
-        await send(context, chat_id,
-                   text="Введіть новий *коментар*:", parse_mode="Markdown",
+        await send(context, chat_id, text="Введіть новий *коментар*:", parse_mode="Markdown",
                    reply_markup=ReplyKeyboardMarkup(
                        [["Без коментаря"]], one_time_keyboard=True, resize_keyboard=True,
                    ))
@@ -347,7 +342,7 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return CONFIRM
 
 # ---------------------------------------------------------------------------
-# /remove command
+# /remove  — cancel reservation
 # ---------------------------------------------------------------------------
 
 async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -381,7 +376,7 @@ def main() -> None:
             DATE:     [MessageHandler(filters.TEXT & ~filters.COMMAND, get_date)],
             TIME:     [MessageHandler(filters.TEXT & ~filters.COMMAND, get_time)],
             PREORDER: [
-                # WebApp closes → Telegram delivers web_app_data message
+                # WebApp closes → Telegram delivers web_app_data message to bot
                 MessageHandler(filters.StatusUpdate.WEB_APP_DATA, preorder_webapp_data),
                 CallbackQueryHandler(preorder_skip, pattern="^skip_preorder$"),
             ],

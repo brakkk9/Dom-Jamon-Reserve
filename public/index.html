@@ -13,7 +13,7 @@
 </head>
 <body>
 
-<!-- ── Main shell ──────────────────────────────── -->
+<!-- ── Main shell ──────────────────────────────────────────── -->
 <div class="shell">
 
   <div class="topbar">
@@ -34,7 +34,7 @@
 
 </div>
 
-<!-- ── Bottom bar ──────────────────────────────── -->
+<!-- ── Bottom bar ──────────────────────────────────────────── -->
 <div class="bottom-bar">
   <button class="btn-secondary" onclick="skip()">Пропустити</button>
   <button class="btn-primary" id="confirm-btn" disabled onclick="confirmOrder()">
@@ -43,7 +43,7 @@
   </button>
 </div>
 
-<!-- ── Item popup ──────────────────────────────── -->
+<!-- ── Item popup overlay ──────────────────────────────────── -->
 <div class="overlay" id="item-overlay" onclick="handleOverlayClick(event, 'item-overlay')">
   <div class="sheet">
     <div id="popup-img-wrap"></div>
@@ -55,7 +55,7 @@
   </div>
 </div>
 
-<!-- ── Cart drawer ─────────────────────────────── -->
+<!-- ── Cart drawer overlay ─────────────────────────────────── -->
 <div class="overlay" id="cart-overlay" onclick="handleOverlayClick(event, 'cart-overlay')">
   <div class="sheet">
     <div class="drawer-header">
@@ -73,8 +73,6 @@
   </div>
 </div>
 
-<!-- ── Menu data (inline; in production: fetched from menu.json) ── -->
 <script src="app.js"></script>
-
 </body>
 </html>
