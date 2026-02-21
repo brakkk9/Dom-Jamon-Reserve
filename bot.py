@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 NAME, GUESTS, DATE, TIME, PREORDER, COMMENT, CONFIRM = range(7)
 
-PREORDER_WEBAPP_URL = "https://dom-jamon-reserve.vercel.app"
+PREORDER_WEBAPP_URL = "https://dom-jamon-reserve.vercel.app/preorder    "
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -282,7 +282,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
-    TOKEN = "YOUR_TOKEN_HERE"
+    TOKEN = "8502174576:AAEYcRBjYvGkvd61cXolURx2XlRsmtd9pTg"
 
     app = Application.builder().token(TOKEN).build()
 
