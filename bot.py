@@ -30,8 +30,8 @@ from telegram.ext import (
 # Config
 # ---------------------------------------------------------------------------
 
-TOKEN               = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://your-vercel-app.vercel.app")
+TOKEN               = os.environ.get("BOT_TOKEN", "8502174576:AAEYcRBjYvGkvd61cXolURx2XlRsmtd9pTg")
+PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "dom-jamon-reserve.vercel.app")
 PREORDERS_FILE      = Path("preorders.json")
 
 logging.basicConfig(
