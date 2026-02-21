@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 NAME, GUESTS, DATE, TIME, PREORDER, COMMENT, CONFIRM = range(7)
 
-# ── URL of your hosted HTML page ──────────────────────────────────────────────
-PREORDER_WEBAPP_URL = "https://your-hosted-page.com/preorder.html"  # ← change this
+PREORDER_WEBAPP_URL = "https://your-app.railway.app/preorder"  # ← change after deploying
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -66,14 +65,11 @@ def confirm_keyboard():
 
 def preorder_keyboard():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            "🍽️ Обрати страви",
-            web_app=WebAppInfo(url=PREORDER_WEBAPP_URL)
-        )],
+        [InlineKeyboardButton("🍽️ Передзамовити страви", web_app=WebAppInfo(url=PREORDER_WEBAPP_URL))],
         [InlineKeyboardButton("➡️ Пропустити", callback_data="skip_preorder")],
     ])
 
-# ─── FLOW HANDLERS ────────────────────────────────────────────────────────────
+# ─── HANDLERS ─────────────────────────────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
@@ -82,6 +78,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         parse_mode="Markdown", reply_markup=ReplyKeyboardRemove(),
     )
     return NAME
+
 
 async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["name"] = update.message.text.strip()
@@ -92,31 +89,40 @@ async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     return GUESTS
 
+
 async def get_guests(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["guests"] = update.message.text.strip()
-    await update.message.reply_text("Оберіть *дату* резервації:", parse_mode="Markdown", reply_markup=build_date_keyboard())
+    await update.message.reply_text(
+        "Оберіть *дату* резервації:", parse_mode="Markdown",
+        reply_markup=build_date_keyboard(),
+    )
     return DATE
+
 
 async def get_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["date"] = update.message.text.strip()
     await update.message.reply_text(
         "Тепер оберіть *час*:", parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup([
-            ["12:00","13:00","14:00"], ["15:00","16:00","17:00"],
-            ["18:00","19:00","20:00"], ["21:00","22:00"],
+            ["12:00","13:00","14:00"],
+            ["15:00","16:00","17:00"],
+            ["18:00","19:00","20:00"],
+            ["21:00","22:00"],
         ], one_time_keyboard=True, resize_keyboard=True),
     )
     return TIME
+
 
 async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["time"] = update.message.text.strip()
     await update.message.reply_text(
         "Бажаєте *передзамовити страви* заздалегідь? 🍽️\n\n"
-        "Натисніть *Обрати страви* щоб переглянути меню, або пропустіть цей крок.",
+        "Натисніть кнопку нижче щоб відкрити меню, або пропустіть цей крок.",
         parse_mode="Markdown",
         reply_markup=preorder_keyboard(),
     )
     return PREORDER
+
 
 async def preorder_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
@@ -126,8 +132,8 @@ async def preorder_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     await ask_comment(query.message.chat_id, context)
     return COMMENT
 
+
 async def preorder_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Receives data sent back from the WebApp via sendData()"""
     raw = update.effective_message.web_app_data.data
     try:
         payload = json.loads(raw)
@@ -137,9 +143,9 @@ async def preorder_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYP
             context.user_data["preorder_items"] = None
     except Exception:
         context.user_data["preorder_items"] = None
-
     await ask_comment(update.effective_message.chat_id, context)
     return COMMENT
+
 
 async def ask_comment(chat_id, context):
     await context.bot.send_message(
@@ -150,6 +156,7 @@ async def ask_comment(chat_id, context):
         parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup([["Без коментаря"]], one_time_keyboard=True, resize_keyboard=True),
     )
+
 
 async def get_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
@@ -171,7 +178,7 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await query.edit_message_text(
             f"✅ *Резервацію підтверджено!*\n\n{summary_text(context.user_data)}\n"
             "З нетерпінням очікуємо на вас! 🍽️\n\n"
-            "Щоб скасувати резервацію, скористайтесь командою /remove",
+            "Щоб скасувати резервацію — /remove",
             parse_mode="Markdown",
         )
         logger.info(f"New reservation: {context.user_data}")
@@ -179,32 +186,47 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     await query.edit_message_reply_markup(reply_markup=None)
 
-    actions = {
-        "edit_name":     (NAME,    "Введіть нове *ім'я*:", None),
-        "edit_guests":   (GUESTS,  "Оберіть нову *кількість гостей*:", ReplyKeyboardMarkup([["1","2","3","4"],["5","6","7","8+"]], one_time_keyboard=True, resize_keyboard=True)),
-        "edit_date":     (DATE,    "Оберіть нову *дату*:", build_date_keyboard()),
-        "edit_time":     (TIME,    "Оберіть новий *час*:", ReplyKeyboardMarkup([["12:00","13:00","14:00"],["15:00","16:00","17:00"],["18:00","19:00","20:00"],["21:00","22:00"]], one_time_keyboard=True, resize_keyboard=True)),
-        "edit_comment":  (COMMENT, "Введіть новий *коментар*:", ReplyKeyboardMarkup([["Без коментаря"]], one_time_keyboard=True, resize_keyboard=True)),
-    }
+    if data == "edit_name":
+        await context.bot.send_message(chat_id=query.message.chat_id, text="Введіть нове *ім'я*:", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        return NAME
 
-    if data == "edit_preorder":
+    elif data == "edit_guests":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id, text="Оберіть нову *кількість гостей*:", parse_mode="Markdown",
+            reply_markup=ReplyKeyboardMarkup([["1","2","3","4"],["5","6","7","8+"]], one_time_keyboard=True, resize_keyboard=True),
+        )
+        return GUESTS
+
+    elif data == "edit_date":
+        await context.bot.send_message(chat_id=query.message.chat_id, text="Оберіть нову *дату*:", parse_mode="Markdown", reply_markup=build_date_keyboard())
+        return DATE
+
+    elif data == "edit_time":
+        await context.bot.send_message(
+            chat_id=query.message.chat_id, text="Оберіть новий *час*:", parse_mode="Markdown",
+            reply_markup=ReplyKeyboardMarkup([
+                ["12:00","13:00","14:00"], ["15:00","16:00","17:00"],
+                ["18:00","19:00","20:00"], ["21:00","22:00"],
+            ], one_time_keyboard=True, resize_keyboard=True),
+        )
+        return TIME
+
+    elif data == "edit_preorder":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Оновіть ваше *передзамовлення* або пропустіть:",
-            parse_mode="Markdown",
-            reply_markup=preorder_keyboard(),
+            parse_mode="Markdown", reply_markup=preorder_keyboard(),
         )
         return PREORDER
 
-    if data in actions:
-        state, prompt, markup = actions[data]
+    elif data == "edit_comment":
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=prompt,
+            text="Введіть новий *коментар* або натисніть кнопку щоб прибрати його:",
             parse_mode="Markdown",
-            reply_markup=markup or ReplyKeyboardRemove(),
+            reply_markup=ReplyKeyboardMarkup([["Без коментаря"]], one_time_keyboard=True, resize_keyboard=True),
         )
-        return state
+        return COMMENT
 
     return CONFIRM
 
@@ -213,9 +235,9 @@ async def show_confirm(chat_id, context):
     await context.bot.send_message(
         chat_id=chat_id,
         text=f"📋 *Перевірте вашу резервацію:*\n\n{summary_text(context.user_data)}\nВсе вірно?",
-        parse_mode="Markdown",
-        reply_markup=confirm_keyboard(),
+        parse_mode="Markdown", reply_markup=confirm_keyboard(),
     )
+
 
 async def edited_name(update, context):
     context.user_data["name"] = update.message.text.strip()
@@ -250,7 +272,8 @@ async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ У вас немає активної резервації.", reply_markup=ReplyKeyboardRemove())
         return
     context.user_data.clear()
-    await update.message.reply_text("🗑️ Вашу резервацію було скасовано.\n\nЩоб зробити нову — напишіть /start", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("🗑️ Вашу резервацію було скасовано.\n\nЩоб зробити нову — /start", reply_markup=ReplyKeyboardRemove())
+
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Резервацію скасовано. Напишіть /start щоб почати знову.", reply_markup=ReplyKeyboardRemove())
@@ -259,7 +282,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
-    TOKEN = "8502174576:AAEYcRBjYvGkvd61cXolURx2XlRsmtd9pTg"
+    TOKEN = "YOUR_TOKEN_HERE"
+
     app = Application.builder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(
@@ -290,6 +314,7 @@ def main():
     app.add_handler(conv_handler)
     app.add_handler(CommandHandler("remove", remove))
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
