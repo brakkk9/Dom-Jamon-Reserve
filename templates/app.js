@@ -46,18 +46,36 @@ let popupItemId         = null;
 let popupSelectedOption = null;
 
 // ---------------------------------------------------------------------------
-// Persistence
+// Persistence — tg.CloudStorage with localStorage fallback
 // ---------------------------------------------------------------------------
 
 function saveCart() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cart)); } catch (_) {}
+  const value = JSON.stringify(cart);
+  try { tg.CloudStorage.setItem(STORAGE_KEY, value, () => {}); } catch (_) {}
+  try { localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
 }
 
 function loadCart() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) Object.assign(cart, JSON.parse(raw));
-  } catch (_) {}
+  return new Promise(resolve => {
+    const fromLocal = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) Object.assign(cart, JSON.parse(raw));
+      } catch (_) {}
+      resolve();
+    };
+
+    try {
+      tg.CloudStorage.getItem(STORAGE_KEY, (err, value) => {
+        if (!err && value) {
+          try { Object.assign(cart, JSON.parse(value)); } catch (_) {}
+        }
+        resolve();
+      });
+    } catch (_) {
+      fromLocal();
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -425,25 +443,29 @@ function updateBar() {
 }
 
 // ---------------------------------------------------------------------------
-// Confirm & skip  →  send data then close the WebApp
+// Confirm & skip — send data then always close
 // ---------------------------------------------------------------------------
 
 function confirmOrder() {
   const vals = Object.values(cart).filter(i => i.qty > 0);
   if (!vals.length) return;
 
-  tg.sendData(JSON.stringify({
+  const payload = JSON.stringify({
     action: 'preorder',
     items:  vals.map(i => ({ name: i.name, option: i.option, qty: i.qty, price: i.price })),
     total:  vals.reduce((s, i) => s + i.qty * i.price, 0),
-  }));
+  });
 
-  localStorage.removeItem(STORAGE_KEY);
+  try { tg.sendData(payload); } catch (_) {}
+
+  try { tg.CloudStorage.removeItem(STORAGE_KEY, () => {}); } catch (_) {}
+  try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+
   tg.close();
 }
 
 function skip() {
-  tg.sendData(JSON.stringify({ action: 'skip' }));
+  try { tg.sendData(JSON.stringify({ action: 'skip' })); } catch (_) {}
   tg.close();
 }
 
@@ -506,9 +528,9 @@ function plural(n, one, few, many) {
 
 fetch('./menu.json')
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(data => {
+  .then(async data => {
     window.MENU = data;
-    loadCart();
+    await loadCart();
     buildUI(MENU);
     MENU.categories.forEach(cat => cat.items.forEach(item => renderCardCtrl(item.id)));
     updateBar();
