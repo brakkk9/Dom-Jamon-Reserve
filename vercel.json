@@ -1,5 +1,3 @@
 {
-  "rewrites": [
-    { "source": "/preorder", "destination": "/preorder.html" }
-  ]
+  "public": true
 }
