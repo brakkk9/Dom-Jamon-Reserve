@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/preorder", "destination": "/preorder.html" }
+  ]
+}
