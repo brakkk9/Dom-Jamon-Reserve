@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 NAME, GUESTS, DATE, TIME, PREORDER, COMMENT, CONFIRM = range(7)
 
-PREORDER_WEBAPP_URL = "https://dom-jamon-reserve.vercel.app/preorder    "
+PREORDER_WEBAPP_URL = "https://dom-jamon-reserve.vercel.app/preorder"
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 
