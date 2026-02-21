@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Dom Jamon · Передзамовлення</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="stylesheet" href="style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+
+<!-- ── Main shell ──────────────────────────────── -->
+<div class="shell">
+
+  <div class="topbar">
+    <div>
+      <div class="brand-name">Dom Jamon</div>
+      <div class="brand-sub">Передзамовлення</div>
+    </div>
+    <button class="cart-pill" id="cart-pill" onclick="openCartDrawer()">
+      <span id="pill-label">Кошик порожній</span>
+    </button>
+  </div>
+
+  <div class="cat-strip-wrap">
+    <div class="cat-strip" id="cat-strip"></div>
+  </div>
+
+  <div class="scroll-area" id="scroll-area"></div>
+
+</div>
+
+<!-- ── Bottom bar ──────────────────────────────── -->
+<div class="bottom-bar">
+  <button class="btn-secondary" onclick="skip()">Пропустити</button>
+  <button class="btn-primary" id="confirm-btn" disabled onclick="confirmOrder()">
+    <span>Підтвердити</span>
+    <span class="sub" id="confirm-sub"></span>
+  </button>
+</div>
+
+<!-- ── Item popup ──────────────────────────────── -->
+<div class="overlay" id="item-overlay" onclick="handleOverlayClick(event, 'item-overlay')">
+  <div class="sheet">
+    <div id="popup-img-wrap"></div>
+    <div class="popup-scroll" id="popup-body"></div>
+    <div class="sheet-footer">
+      <button class="btn-secondary" onclick="closeItemPopup()">Закрити</button>
+      <div class="popup-ctrl-wrap" id="popup-ctrl"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Cart drawer ─────────────────────────────── -->
+<div class="overlay" id="cart-overlay" onclick="handleOverlayClick(event, 'cart-overlay')">
+  <div class="sheet">
+    <div class="drawer-header">
+      <span class="drawer-title">Ваше замовлення</span>
+      <span class="drawer-total" id="drawer-total"></span>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+    <div class="sheet-footer">
+      <button class="btn-secondary" onclick="closeCartDrawer()">Продовжити вибір</button>
+      <button class="btn-primary" id="drawer-confirm-btn" disabled onclick="confirmOrder()">
+        <span>Підтвердити</span>
+        <span class="sub" id="drawer-confirm-sub"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Menu data (inline; in production: fetched from menu.json) ── -->
+<script src="app.js"></script>
+
+</body>
+</html>
