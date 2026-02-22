@@ -57,6 +57,29 @@ function saveCart() {
 
 function loadCart() {
   return new Promise(resolve => {
+    // Priority 1: ?cart= URL param passed by bot when editing (pre-fills from saved preorder)
+    const urlParam = new URLSearchParams(window.location.search).get('cart');
+    if (urlParam) {
+      try {
+        const items = JSON.parse(urlParam);
+        // Convert preorder items [{name, option, price, qty}] back into cart format
+        items.forEach(item => {
+          // Find the item id by matching name in MENU (MENU may not be loaded yet, store raw)
+          const key = item.option ? `__named__:${item.name}:${item.option}` : `__named__:${item.name}`;
+          cart[key] = {
+            name:   item.name,
+            option: item.option ?? null,
+            price:  item.price,
+            qty:    item.qty,
+            itemId: null,  // resolved after menu loads
+          };
+        });
+      } catch (_) {}
+      resolve();
+      return;
+    }
+
+    // Priority 2: tg.CloudStorage
     const fromLocal = () => {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -74,6 +97,26 @@ function loadCart() {
       });
     } catch (_) {
       fromLocal();
+    }
+  });
+}
+
+// After menu is loaded, resolve __named__ keys to proper itemId-based keys
+function resolveCartKeys() {
+  const toResolve = Object.entries(cart).filter(([k]) => k.startsWith('__named__:'));
+  if (!toResolve.length) return;
+
+  toResolve.forEach(([key, v]) => {
+    delete cart[key];
+    // Find item in menu by name
+    for (const cat of MENU.categories) {
+      for (const item of cat.items) {
+        if (item.name === v.name) {
+          const newKey = v.option ? `${item.id}:${v.option}` : String(item.id);
+          cart[newKey] = { ...v, itemId: item.id };
+          break;
+        }
+      }
     }
   });
 }
@@ -530,6 +573,7 @@ fetch('./menu.json')
   .then(async data => {
     window.MENU = data;
     await loadCart();
+    resolveCartKeys();   // fix any __named__ keys loaded from URL param
     buildUI(MENU);
     MENU.categories.forEach(cat =>
       cat.items.forEach(item => renderCardCtrl(item.id)),

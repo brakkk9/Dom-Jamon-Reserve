@@ -11,6 +11,7 @@ from pathlib import Path
 from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    KeyboardButton,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
@@ -30,9 +31,9 @@ from telegram.ext import (
 # Config
 # ---------------------------------------------------------------------------
 
-TOKEN               = os.environ.get("BOT_TOKEN", "8502174576:AAEYcRBjYvGkvd61cXolURx2XlRsmtd9pTg")
-PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "dom-jamon-reserve.vercel.app")
-PREORDERS_FILE      = Path("preorders.json")
+TOKEN              = os.environ.get("BOT_TOKEN", "8502174576:AAEYcRBjYvGkvd61cXolURx2XlRsmtd9pTg")
+PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://dom-jamon-reserve.vercel.app")
+PREORDERS_FILE     = Path("preorders.json")
 
 logging.basicConfig(
     format="%(asctime)s  %(levelname)s  %(name)s — %(message)s",
@@ -96,14 +97,22 @@ def date_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
 
 
-def preorder_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            "Передзамовити страви",
-            web_app=WebAppInfo(url=PREORDER_WEBAPP_URL),
-        )],
-        [InlineKeyboardButton("Пропустити", callback_data="skip_preorder")],
-    ])
+def preorder_keyboard(existing_items: list | None = None) -> ReplyKeyboardMarkup:
+    # Must be ReplyKeyboardMarkup with KeyboardButton — NOT InlineKeyboardMarkup.
+    # tg.sendData() only works when the WebApp is opened via a KeyboardButton.
+    # Inline buttons open the WebApp but silently block sendData.
+    url = PREORDER_WEBAPP_URL
+    if existing_items:
+        import urllib.parse
+        url = url + "?cart=" + urllib.parse.quote(json.dumps(existing_items))
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton("Передзамовити страви", web_app=WebAppInfo(url=url))],
+            ["Пропустити"],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
 
 
 def confirm_keyboard() -> InlineKeyboardMarkup:
@@ -219,6 +228,8 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         parse_mode="Markdown",
         reply_markup=preorder_keyboard(),
     )
+    # Note: reply keyboard with web_app button is shown; user either opens
+    # the WebApp (sendData triggers preorder_webapp_data) or taps "Пропустити".
     return PREORDER
 
 
@@ -234,17 +245,31 @@ async def preorder_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception:
         context.user_data["preorder_items"] = None
 
-    await ask_comment(update.effective_message.chat_id, context)
-    return COMMENT
+    return await after_preorder(update.effective_message.chat_id, context)
 
 
 async def preorder_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_reply_markup(reply_markup=None)
     context.user_data["preorder_items"] = None
-    await ask_comment(query.message.chat_id, context)
-    return COMMENT
+    return await after_preorder(update.effective_message.chat_id, context)
+
+
+async def after_preorder(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """After preorder step: go back to confirm if editing, else ask for comment."""
+    # Dismiss the preorder reply keyboard silently
+    dismiss = await context.bot.send_message(chat_id=chat_id, text="ok", reply_markup=ReplyKeyboardRemove())
+    await dismiss.delete()
+    if context.user_data.get("_editing"):
+        context.user_data.pop("_editing", None)
+        await send(
+            context, chat_id,
+            text=f"*Перевірте вашу резервацію:*\n\n{summary(context.user_data)}\nВсе вірно, або бажаєте щось змінити?",
+            parse_mode="Markdown",
+            reply_markup=confirm_keyboard(),
+        )
+        return CONFIRM
+    else:
+        await ask_comment(chat_id, context)
+        return COMMENT
 
 
 async def ask_comment(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -265,9 +290,12 @@ async def ask_comment(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def get_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
     context.user_data["comment"] = None if text == "Без коментаря" else text
-    await update.message.reply_text(
-        f"*Перевірте вашу резервацію:*\n\n{summary(context.user_data)}\n"
-        "Все вірно, або бажаєте щось змінити?",
+    # Send confirm with ReplyKeyboardRemove to dismiss the keyboard, then delete that message
+    dismiss = await update.message.reply_text("ok", reply_markup=ReplyKeyboardRemove())
+    await dismiss.delete()
+    await send(
+        context, update.effective_chat.id,
+        text=f"*Перевірте вашу резервацію:*\n\n{summary(context.user_data)}\nВсе вірно, або бажаєте щось змінити?",
         parse_mode="Markdown",
         reply_markup=confirm_keyboard(),
     )
@@ -326,10 +354,12 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return TIME
 
     if query.data == "edit_preorder":
+        context.user_data["_editing"] = True
+        existing = context.user_data.get("preorder_items")
         await send(context, chat_id,
                    text="Оновіть ваше *передзамовлення* або пропустіть:",
                    parse_mode="Markdown",
-                   reply_markup=preorder_keyboard())
+                   reply_markup=preorder_keyboard(existing))
         return PREORDER
 
     if query.data == "edit_comment":
@@ -376,9 +406,10 @@ def main() -> None:
             DATE:     [MessageHandler(filters.TEXT & ~filters.COMMAND, get_date)],
             TIME:     [MessageHandler(filters.TEXT & ~filters.COMMAND, get_time)],
             PREORDER: [
-                # WebApp closes → Telegram delivers web_app_data message to bot
+                # WebApp closes via tg.sendData() → Telegram delivers WEB_APP_DATA message
                 MessageHandler(filters.StatusUpdate.WEB_APP_DATA, preorder_webapp_data),
-                CallbackQueryHandler(preorder_skip, pattern="^skip_preorder$"),
+                # "Пропустити" is now a plain reply keyboard button → TEXT message
+                MessageHandler(filters.Regex(r"^Пропустити$"), preorder_skip),
             ],
             COMMENT:  [MessageHandler(filters.TEXT & ~filters.COMMAND, get_comment)],
             CONFIRM:  [CallbackQueryHandler(confirm_callback)],
