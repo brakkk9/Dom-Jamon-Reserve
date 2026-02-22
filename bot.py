@@ -31,9 +31,9 @@ from telegram.ext import (
 # Config
 # ---------------------------------------------------------------------------
 
-TOKEN              = os.environ.get("BOT_TOKEN", "8502174576:AAEYcRBjYvGkvd61cXolURx2XlRsmtd9pTg")
-PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://dom-jamon-reserve.vercel.app")
-PREORDERS_FILE     = Path("preorders.json")
+TOKEN               = os.environ.get("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
+PREORDER_WEBAPP_URL = os.environ.get("WEBAPP_URL", "https://your-vercel-app.vercel.app")
+PREORDERS_FILE      = Path("preorders.json")
 
 logging.basicConfig(
     format="%(asctime)s  %(levelname)s  %(name)s — %(message)s",
@@ -240,6 +240,13 @@ async def preorder_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYP
         payload = json.loads(raw)
         if payload.get("action") == "preorder" and payload.get("items"):
             context.user_data["preorder_items"] = payload["items"]
+        elif payload.get("action") == "preorder" and not payload.get("items"):
+            # Empty items = user cleared the preorder
+            context.user_data["preorder_items"] = None
+        elif payload.get("action") == "skip":
+            # Keep existing preorder when editing and user skips
+            if not context.user_data.get("_editing"):
+                context.user_data["preorder_items"] = None
         else:
             context.user_data["preorder_items"] = None
     except Exception:
@@ -249,7 +256,9 @@ async def preorder_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def preorder_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    context.user_data["preorder_items"] = None
+    # When editing, "Пропустити" means "keep existing preorder unchanged"
+    if not context.user_data.get("_editing"):
+        context.user_data["preorder_items"] = None
     return await after_preorder(update.effective_message.chat_id, context)
 
 

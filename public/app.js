@@ -507,7 +507,29 @@ function confirmOrder() {
 }
 
 function skip() {
-  try { tg.sendData(JSON.stringify({ action: 'skip' })); } catch (_) {}
+  const vals = Object.values(cart).filter(i => i.qty > 0);
+
+  // If there are items in the cart, send them (user kept/modified selection)
+  // If cart is empty but we were pre-filled via ?cart= param, send the original back
+  const urlParam = new URLSearchParams(window.location.search).get('cart');
+
+  if (vals.length > 0) {
+    // Cart has items — send them as a preorder (not skip)
+    try {
+      tg.sendData(JSON.stringify({
+        action: 'preorder',
+        items:  vals.map(i => ({ name: i.name, option: i.option, qty: i.qty, price: i.price })),
+        total:  vals.reduce((s, i) => s + i.qty * i.price, 0),
+      }));
+    } catch (_) {}
+  } else if (urlParam) {
+    // Editing mode, cart cleared to empty — user explicitly removed everything
+    try { tg.sendData(JSON.stringify({ action: 'preorder', items: [], total: 0 })); } catch (_) {}
+  } else {
+    // Fresh flow, no items — genuine skip
+    try { tg.sendData(JSON.stringify({ action: 'skip' })); } catch (_) {}
+  }
+
   tg.close();
 }
 
