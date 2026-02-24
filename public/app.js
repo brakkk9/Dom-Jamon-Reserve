@@ -163,7 +163,7 @@ function buildUI(data) {
 
       const thumbHTML = item.image
         ? `<img class="item-thumb" src="${item.image}" alt="${item.name}" loading="lazy">`
-        : `<div class="item-thumb-placeholder"></div>`;
+        : '';
 
       const fromPrice  = item.options
         ? Math.min(...item.options.choices.map(c => c.price))
@@ -242,7 +242,7 @@ function openItemPopup(id) {
 
   document.getElementById('popup-img-wrap').innerHTML = item.image
     ? `<img class="popup-img" src="${item.image}" alt="${item.name}">`
-    : `<div class="popup-img-placeholder"></div>`;
+    : '';
 
   const optionsHTML = item.options ? `
     <div class="options-section">
